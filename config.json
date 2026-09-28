@@ -36,24 +36,29 @@
   "exclude_keywords": ["intern", "internship", "unpaid"],
   "exclude_location_patterns": [],
 
+  "allow_locations": ["canada", "canadian", "north america", "americas", "toronto", "vancouver", "montreal",
+                      "ottawa", "calgary", "edmonton", "winnipeg", "halifax", "ontario", "quebec",
+                      "british columbia", "alberta", "manitoba", "saskatchewan", "nova scotia", "new brunswick"],
+  "include_worldwide": false,
+
   "extra_feeds": [],
 
   "search_links": [
-    {"label": "LinkedIn · Salesforce contract/part-time (past week)",
-     "url": "https://www.linkedin.com/jobs/search/?keywords=salesforce%20OR%20copado%20OR%20flosum&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
-    {"label": "LinkedIn · Java contract/part-time (past week)",
-     "url": "https://www.linkedin.com/jobs/search/?keywords=java%20developer&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
-    {"label": "Dice · Salesforce remote contracts",
-     "url": "https://www.dice.com/jobs?q=salesforce&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME&filters.postedDate=SEVEN"},
-    {"label": "Dice · Copado / Flosum",
-     "url": "https://www.dice.com/jobs?q=copado%20OR%20flosum&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME"},
+    {"label": "LinkedIn · Salesforce contract/part-time in Canada (past week)",
+     "url": "https://www.linkedin.com/jobs/search/?keywords=salesforce%20OR%20copado%20OR%20flosum&location=Canada&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
+    {"label": "LinkedIn · Java contract/part-time in Canada (past week)",
+     "url": "https://www.linkedin.com/jobs/search/?keywords=java%20developer&location=Canada&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
+    {"label": "Indeed Canada · Salesforce contract (remote)",
+     "url": "https://ca.indeed.com/jobs?q=salesforce+contract&l=Remote&fromage=7"},
+    {"label": "Indeed Canada · Copado / Flosum",
+     "url": "https://ca.indeed.com/jobs?q=copado+OR+flosum&l=Canada&fromage=14"},
+    {"label": "Job Bank (Government of Canada) · Salesforce",
+     "url": "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=salesforce"},
+    {"label": "Eluta.ca · Salesforce contract",
+     "url": "https://www.eluta.ca/search?q=salesforce+contract"},
     {"label": "Upwork · Salesforce",
      "url": "https://www.upwork.com/nx/search/jobs/?q=salesforce&sort=recency"},
     {"label": "Upwork · Copado / Flosum",
-     "url": "https://www.upwork.com/nx/search/jobs/?q=copado%20OR%20flosum&sort=recency"},
-    {"label": "Indeed · Salesforce contract (remote)",
-     "url": "https://www.indeed.com/jobs?q=salesforce+contract&l=Remote&fromage=7"},
-    {"label": "Salesforce Trailblazer job board",
-     "url": "https://trailhead.salesforce.com/careers"}
+     "url": "https://www.upwork.com/nx/search/jobs/?q=copado%20OR%20flosum&sort=recency"}
   ]
 }

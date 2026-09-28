@@ -18,8 +18,8 @@ CFG = json.loads((ROOT / "config.json").read_text())
 NOW = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
 
 
-def job(title, description="", job_type="", days_old=1, company="Acme", **kw):
-    return Job(source="Test", title=title, company=company, url=f"https://x.test/{title}",
+def job(title, description="", job_type="", days_old=1, company="Acme", location="Canada", **kw):
+    return Job(source="Test", title=title, company=company, url=f"https://x.test/{title}", location=location,
                description=description, job_type=job_type, posted=NOW - timedelta(days=days_old),
                remote=True, **kw)
 
@@ -68,6 +68,24 @@ class ScoringTests(unittest.TestCase):
 
         with_ft = score_and_filter(jobs, CFG, now=NOW, include_full_time=True)
         self.assertIn("Java Engineer", [j.title for j in with_ft])
+
+    def test_canada_location_filter(self):
+        jobs = [
+            job("Salesforce Contractor A", location="Canada"),
+            job("Salesforce Contractor B", location="USA, Canada"),
+            job("Salesforce Contractor C", location="North America"),
+            job("Salesforce Contractor D", "Must be based in Toronto", location=""),
+            job("Salesforce Contractor E", location="USA only"),
+            job("Salesforce Contractor F", location="Europe"),
+            job("Salesforce Contractor G", location="Worldwide"),
+            job("Salesforce Contractor H", location=""),
+        ]
+        kept = {j.title[-1] for j in score_and_filter(jobs, CFG, now=NOW)}
+        self.assertEqual(kept, {"A", "B", "C", "D"})
+
+        worldwide = dict(CFG, include_worldwide=True)
+        kept = {j.title[-1] for j in score_and_filter(jobs, worldwide, now=NOW)}
+        self.assertEqual(kept, {"A", "B", "C", "D", "G", "H"})
 
     def test_dedupe_merges_sources(self):
         a = job("Salesforce Developer", "short")

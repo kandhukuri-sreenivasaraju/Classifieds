@@ -182,6 +182,12 @@ dialog::backdrop { background: rgb(0 0 0 / .45); }
         <input type="text" id="s-terms">
         <p class="hint">Comma separated. Each board is searched for each term.</p>
       </div>
+      <div class="field">
+        <label for="s-allowloc">Only roles open to</label>
+        <input type="text" id="s-allowloc">
+        <p class="hint">Comma separated. A role is kept when its location, title or description mentions one of these. Leave empty to show every location.</p>
+        <label class="checks" style="margin-top:6px"><input type="checkbox" id="s-worldwide"> Also include roles open worldwide / anywhere</label>
+      </div>
       <div class="row">
         <div class="field"><label for="s-minscore">Minimum score</label><input type="number" id="s-minscore" step="1"></div>
         <div class="field">
@@ -228,6 +234,8 @@ const DEFAULTS = {
   engagement: ['part-time', 'contract', 'freelance', 'unknown'],
   exclude: ['intern', 'internship', 'unpaid'],
   excludeLocations: [],
+  allowLocations: ["canada", "canadian", "north america", "americas", "toronto", "vancouver", "montreal", "ottawa", "calgary", "edmonton", "winnipeg", "halifax", "ontario", "quebec", "british columbia", "alberta", "manitoba", "saskatchewan", "nova scotia", "new brunswick"],
+  includeWorldwide: false,
   skills: [
     { name: 'Copado', weight: 6, core: true, keywords: ['copado'] },
     { name: 'Flosum', weight: 6, core: true, keywords: ['flosum'] },
@@ -239,13 +247,14 @@ const DEFAULTS = {
     { name: 'Java', weight: 3, core: true, keywords: ['java', 'spring boot', 'spring framework', 'j2ee', 'jakarta ee', 'hibernate', 'java 17', 'java 21'] },
   ],
   links: [
-    ['LinkedIn · Salesforce', 'https://www.linkedin.com/jobs/search/?keywords=salesforce%20OR%20copado%20OR%20flosum&f_WT=2&f_JT=C%2CP&f_TPR=r604800'],
-    ['LinkedIn · Java', 'https://www.linkedin.com/jobs/search/?keywords=java%20developer&f_WT=2&f_JT=C%2CP&f_TPR=r604800'],
-    ['Dice · Salesforce', 'https://www.dice.com/jobs?q=salesforce&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME&filters.postedDate=SEVEN'],
-    ['Dice · Copado / Flosum', 'https://www.dice.com/jobs?q=copado%20OR%20flosum&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME'],
-    ['Upwork · Salesforce', 'https://www.upwork.com/nx/search/jobs/?q=salesforce&sort=recency'],
-    ['Upwork · Copado / Flosum', 'https://www.upwork.com/nx/search/jobs/?q=copado%20OR%20flosum&sort=recency'],
-    ['Indeed · Salesforce contract', 'https://www.indeed.com/jobs?q=salesforce+contract&l=Remote&fromage=7'],
+    ["LinkedIn · Salesforce contract/part-time in Canada (past week)", "https://www.linkedin.com/jobs/search/?keywords=salesforce%20OR%20copado%20OR%20flosum&location=Canada&f_WT=2&f_JT=C%2CP&f_TPR=r604800"],
+    ["LinkedIn · Java contract/part-time in Canada (past week)", "https://www.linkedin.com/jobs/search/?keywords=java%20developer&location=Canada&f_WT=2&f_JT=C%2CP&f_TPR=r604800"],
+    ["Indeed Canada · Salesforce contract (remote)", "https://ca.indeed.com/jobs?q=salesforce+contract&l=Remote&fromage=7"],
+    ["Indeed Canada · Copado / Flosum", "https://ca.indeed.com/jobs?q=copado+OR+flosum&l=Canada&fromage=14"],
+    ["Job Bank (Government of Canada) · Salesforce", "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=salesforce"],
+    ["Eluta.ca · Salesforce contract", "https://www.eluta.ca/search?q=salesforce+contract"],
+    ["Upwork · Salesforce", "https://www.upwork.com/nx/search/jobs/?q=salesforce&sort=recency"],
+    ["Upwork · Copado / Flosum", "https://www.upwork.com/nx/search/jobs/?q=copado%20OR%20flosum&sort=recency"],
   ],
 };
 const ENG_LABEL = { 'part-time': 'Part-time', contract: 'Contract', freelance: 'Freelance', unknown: 'Unspecified', 'full-time': 'Full-time' };
@@ -260,6 +269,7 @@ const store = {
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 let settings = Object.assign(clone(DEFAULTS), store.get('settings', {}));
+settings.links = DEFAULTS.links;   // links always come from the app, not from saved settings
 let marks = store.get('marks', {});             // key -> {s,a,h: bool, f: firstSeen ms}
 let raw = store.get('jobs', []);                // raw (unscored) listings
 let meta = store.get('meta', { lastFetch: 0, sources: {}, server: null });
@@ -402,6 +412,7 @@ const CONTRACT_RE = /\b(?:contract(?:or|s)?|contract[\s-]to[\s-]hire|freelance(?
 const STRONG_CONTRACT_RE = /\b(?:freelance(?:r)?|1099|c2c|corp[\s-]to[\s-]corp|contract[\s-]to[\s-]hire|hourly\s+rate|contract\s+(?:role|position|basis|engagement|opportunity|assignment|work)|(?:\d+|six|three|twelve)[\s-]+months?\s+contract)\b/i;
 const FULL_TIME_RE = /\bfull[\s-]?time\b|\bpermanent\b/i;
 const REMOTE_RE = /\bremote\b|\banywhere\b|\bwork from home\b|\bwfh\b|\bdistributed\b/i;
+const WORLDWIDE_RE = /\b(?:worldwide|anywhere|global(?:ly)?|international)\b/i;
 const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const kwRe = k => new RegExp('(?<![a-z0-9])' + reEsc(k.toLowerCase()) + '(?![a-z0-9])', 'i');
 
@@ -431,6 +442,12 @@ function scoreAll() {
   const exclude = settings.exclude.map(kwRe);
   const exloc = settings.excludeLocations.map(p => { try { return new RegExp(p, 'i'); } catch { return kwRe(p); } });
   const allowed = new Set(settings.engagement);
+  const allowLoc = settings.allowLocations.map(kwRe);
+  // Open to the chosen locations (e.g. Canada) when location, title or description mentions one;
+  // worldwide/anywhere (or unstated) locations count only when that setting is on.
+  const locationOk = j => !allowLoc.length
+    || allowLoc.some(r => r.test(`${j.location}\n${j.title}\n${j.description}`))
+    || (settings.includeWorldwide && (!j.location.trim() || WORLDWIDE_RE.test(j.location)));
   const now = Date.now();
   const out = [];
   let marksChanged = false;
@@ -438,6 +455,7 @@ function scoreAll() {
     if (!j.remote && !REMOTE_RE.test(`${j.title} ${j.location} ${j.description}`)) continue;
     if (exclude.some(r => r.test(j.title))) continue;
     if (j.location && exloc.some(r => r.test(j.location))) continue;
+    if (!locationOk(j)) continue;
     const body = j.description + '\n' + j.tags.join(' ');
     let score = 0, core = false; const matched = [];
     for (const s of skills) {
@@ -644,7 +662,9 @@ function render() {
   $('newOnly').setAttribute('aria-pressed', String(ui.newOnly));
   $('engChips').innerHTML = Object.keys(ENG_LABEL).filter(k => engCounts[k]).map(k =>
     `<button class="chip" type="button" data-eng="${k}" aria-pressed="${ui.engs.includes(k)}">${ENG_LABEL[k]} ${engCounts[k]}</button>`).join('');
-  $('updated').textContent = `${counts.inbox} matches · ${newCount} new · updated ${ago(Math.max(meta.lastFetch || 0, (meta.server && meta.server.at) || 0))}`;
+  const where = settings.allowLocations.length ? ` · open to ${settings.allowLocations[0].replace(/^\w/, c => c.toUpperCase())}${settings.includeWorldwide ? ' + worldwide' : ''}` : '';
+  $('updated').textContent = `${counts.inbox} matches${where} · ${newCount} new · updated ${ago(Math.max(meta.lastFetch || 0, (meta.server && meta.server.at) || 0))}`;
+  $('updated').title = $('updated').textContent;
   renderSources();
   store.set('ui', ui);
 }
@@ -693,6 +713,8 @@ function fillSettings(s) {
   $('s-minscore').value = s.minScore;
   $('s-exclude').value = s.exclude.join(', ');
   $('s-exloc').value = s.excludeLocations.join(', ');
+  $('s-allowloc').value = s.allowLocations.join(', ');
+  $('s-worldwide').checked = !!s.includeWorldwide;
   $('s-eng').innerHTML = Object.entries(ENG_LABEL).map(([k, v]) =>
     `<label><input type="checkbox" value="${k}" ${s.engagement.includes(k) ? 'checked' : ''}> ${v}</label>`).join('');
   $('s-sources').innerHTML = Object.entries(SOURCES).map(([k, v]) =>
@@ -708,6 +730,8 @@ function readSettings() {
     minScore: Number($('s-minscore').value) || 0,
     exclude: splitList($('s-exclude').value),
     excludeLocations: splitList($('s-exloc').value),
+    allowLocations: splitList($('s-allowloc').value),
+    includeWorldwide: $('s-worldwide').checked,
     engagement: checked('s-eng'),
     sources: checked('s-sources'),
     skills: [...$('s-skills').querySelectorAll('.skill')].map(d => ({
@@ -730,7 +754,8 @@ $('saveSettings').addEventListener('click', () => {
   if (!next.skills.some(s => s.core)) { alert('Mark at least one skill as Required.'); return; }
   const refetch = next.terms.join() !== settings.terms.join() || next.sources.some(s => !settings.sources.includes(s));
   settings = next;
-  store.set('settings', settings);
+  const { links, ...toSave } = settings;
+  store.set('settings', toSave);
   $('settings').close();
   recompute();
   if (refetch) refresh();

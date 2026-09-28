@@ -17,6 +17,7 @@ Everything uses the Python standard library, so there is nothing to install and 
   refreshes by itself when you open it and the data is more than an hour old.
 * **NEW** badges mark listings you haven't seen before.
 * **Save**, **Applied** and **Hide** buttons, with a tab for each list.
+* Only roles open to Canada by default (see *Location* below).
 * Filters for search text, work type (part-time, contract, freelance), date range and sort order,
   plus a **CSV** export.
 * **Settings** lets you edit your skills, keywords, weights, search terms, boards and exclusions.
@@ -73,8 +74,9 @@ Each run also writes `output/jobs.csv` (opens in Excel or Sheets) and `output/jo
 | We Work Remotely | RSS search feed |
 | Hacker News | Monthly *"Who is hiring?"* and *"Freelancer? Seeking freelancer?"* threads (Algolia API) |
 
-LinkedIn, Dice, Upwork and Indeed have no public feed. Instead, the bottom of the report has
-one-click searches on those sites, already filtered to remote contract or part-time roles.
+LinkedIn, Indeed Canada, Job Bank, Eluta and Upwork have no public feed. Instead, the bottom of the
+page has one-click searches on those sites, already filtered to contract or part-time roles in Canada
+where the site supports it.
 
 You can add more feeds, for example a Google Alert delivered as RSS, under `extra_feeds` in
 `config.json`:
@@ -95,6 +97,11 @@ You can add more feeds, for example a Google Alert delivered as RSS, under `extr
   "1099", "C2C" or "6 month contract". Part-time and contract roles rank higher, and full-time roles
   are hidden unless you pass `--include-full-time`.
 * **Recency**: listings from the last 2, 7 and 14 days get a boost.
+* **Location (Canada by default)**: `allow_locations` keeps only roles whose location, title or
+  description mentions Canada, a Canadian city or province, or North America or the Americas.
+  Roles listed as worldwide or "anywhere" are hidden unless you set `"include_worldwide": true`.
+  In the web app, both settings are at the top of **Settings**. Empty `allow_locations` to show
+  every location.
 * **`exclude_keywords`** removes titles you never want to see. **`exclude_location_patterns`** removes
   roles restricted to regions you can't work from, e.g. `["europe only", "^EMEA$", "UK only"]`.
 * **`owner_name`** personalizes the page heading.

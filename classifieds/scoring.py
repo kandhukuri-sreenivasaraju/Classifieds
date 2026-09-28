@@ -27,6 +27,7 @@ STRONG_CONTRACT_RE = re.compile(
 )
 FULL_TIME_RE = re.compile(r"\bfull[\s-]?time\b|\bpermanent\b", re.I)
 REMOTE_RE = re.compile(r"\bremote\b|\banywhere\b|\bwork from home\b|\bwfh\b|\bdistributed\b", re.I)
+WORLDWIDE_RE = re.compile(r"\b(?:worldwide|anywhere|global(?:ly)?|international)\b", re.I)
 
 ENGAGEMENT_BONUS = {"part-time": 5, "freelance": 4, "contract": 4, "unknown": 0, "full-time": -4}
 
@@ -124,6 +125,19 @@ def is_remote(job: Job) -> bool:
     return job.remote or bool(REMOTE_RE.search(f"{job.title} {job.location} {job.description}"))
 
 
+def location_ok(job: Job, allow: List[Pattern[str]], include_worldwide: bool) -> bool:
+    """True when the role is open to the configured locations (e.g. Canada).
+
+    Matches the location, title or description against `allow_locations`. Roles listed as
+    worldwide/anywhere (or with no location at all) count only when `include_worldwide` is on.
+    """
+    if not allow:
+        return True
+    if any(p.search(f"{job.location}\n{job.title}\n{job.description}") for p in allow):
+        return True
+    return include_worldwide and (not job.location.strip() or bool(WORLDWIDE_RE.search(job.location)))
+
+
 def dedupe(jobs: List[Job]) -> List[Job]:
     """Merge the same role seen on several boards/search terms; keep the richest copy."""
     by_key: Dict[str, Job] = {}
@@ -158,6 +172,8 @@ def score_and_filter(
     min_score = cfg.get("min_score", 0)
     exclude = [keyword_regex(k) for k in cfg.get("exclude_keywords", [])]
     exclude_loc = [re.compile(p, re.I) for p in cfg.get("exclude_location_patterns", [])]
+    allow_loc = [keyword_regex(k) for k in cfg.get("allow_locations", [])]
+    include_worldwide = bool(cfg.get("include_worldwide", False))
 
     results = []
     for job in dedupe(jobs):
@@ -169,6 +185,8 @@ def score_and_filter(
         if any(p.search(job.title) for p in exclude):
             continue
         if job.location and any(p.search(job.location) for p in exclude_loc):
+            continue
+        if not location_ok(job, allow_loc, include_worldwide):
             continue
 
         skill_score, matched, core_hit = match_skills(job, skills)

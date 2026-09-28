@@ -222,6 +222,8 @@ def fetch_arbeitnow(terms: List[str], pages: int = 3) -> List[Job]:
 
 # --------------------------------------------------------------------------- Hacker News
 _HN_THREAD_RE = re.compile(r"who is hiring|seeking freelancer", re.I)
+_SEEKING_WORK_RE = re.compile(r"\W*seeking work", re.I)
+_SEEKING_FREELANCER_RE = re.compile(r"\W*seeking freelancers?\W*$", re.I)
 
 
 def fetch_hackernews(terms: List[str], days: int = 45) -> List[Job]:
@@ -241,7 +243,9 @@ def fetch_hackernews(terms: List[str], days: int = 45) -> List[Job]:
             if not text:
                 continue
             first_line = text.split("\n", 1)[0]
-            parts = [p.strip() for p in first_line.split("|") if p.strip()]
+            if _SEEKING_WORK_RE.match(first_line):
+                continue  # freelancers advertising themselves, not jobs
+            parts = [p.strip() for p in first_line.split("|") if p.strip() and not _SEEKING_FREELANCER_RE.match(p.strip())]
             company = parts[0] if parts else hit.get("author", "")
             title = " | ".join(parts[1:]) if len(parts) > 1 else first_line
             jobs.append(

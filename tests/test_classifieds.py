@@ -7,6 +7,9 @@ from pathlib import Path
 from classifieds.models import Job, parse_date, strip_html
 from classifieds.render import render_html
 from classifieds.scoring import classify_engagement, dedupe, keyword_regex, score_and_filter
+from unittest import mock
+
+from classifieds import sources
 from classifieds.sources import parse_feed
 from classifieds.store import mark_new
 
@@ -95,6 +98,20 @@ class HelperTests(unittest.TestCase):
         </item></channel></rss>"""
         (j,) = parse_feed(raw, "We Work Remotely", remote=True)
         self.assertEqual((j.company, j.title, j.job_type, j.description), ("Acme", "Salesforce Contractor", "Contract", "Apex work"))
+
+    def test_hackernews_skips_seeking_work_and_strips_prefix(self):
+        hits = {"hits": [
+            {"objectID": "1", "story_title": "Ask HN: Freelancer? Seeking freelancer?", "created_at_i": 1790503200,
+             "comment_text": "SEEKING FREELANCER | Umbrella | Salesforce Apex dev | REMOTE<p>Hourly contract"},
+            {"objectID": "2", "story_title": "Ask HN: Freelancer? Seeking freelancer?", "created_at_i": 1790503200,
+             "comment_text": "SEEKING WORK | Remote | Salesforce consultant"},
+            {"objectID": "3", "story_title": "Show HN: something else", "created_at_i": 1790503200,
+             "comment_text": "Salesforce"},
+        ]}
+        with mock.patch.object(sources, "fetch_json", return_value=hits):
+            (j,) = sources.fetch_hackernews(["salesforce"])
+        self.assertEqual((j.company, j.title), ("Umbrella", "Salesforce Apex dev | REMOTE"))
+        self.assertTrue(j.remote)
 
     def test_mark_new_and_render(self):
         with tempfile.TemporaryDirectory() as tmp:

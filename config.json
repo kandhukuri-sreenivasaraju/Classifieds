@@ -1,0 +1,59 @@
+{
+  "owner_name": "",
+  "search_terms": ["salesforce", "copado", "flosum", "apex", "java"],
+  "sources": ["remotive", "remoteok", "jobicy", "himalayas", "weworkremotely", "workingnomads", "arbeitnow", "hackernews"],
+
+  "max_age_days": 30,
+  "min_score": 6,
+  "remote_only": true,
+  "engagement_allow": ["contract", "part-time", "freelance", "unknown"],
+
+  "skills": [
+    {"name": "Copado", "weight": 6, "core": true,
+     "keywords": ["copado"]},
+    {"name": "Flosum", "weight": 6, "core": true,
+     "keywords": ["flosum"]},
+    {"name": "Salesforce", "weight": 5, "core": true,
+     "keywords": ["salesforce", "sfdc", "force.com", "sales cloud", "service cloud", "experience cloud",
+                  "salesforce cpq", "health cloud", "financial services cloud", "agentforce"]},
+    {"name": "Salesforce Development", "weight": 4,
+     "keywords": ["apex", "lwc", "lightning web component", "lightning web components", "visualforce", "aura",
+                  "soql", "sosl", "batch apex", "apex triggers", "salesforce developer", "platform developer"]},
+    {"name": "Salesforce Admin", "weight": 3,
+     "keywords": ["salesforce admin", "salesforce administrator", "sfdc admin", "certified administrator",
+                  "flow builder", "salesforce flows", "process builder", "permission sets", "validation rules",
+                  "page layouts", "record types"]},
+    {"name": "Integration", "weight": 3,
+     "keywords": ["integration", "integrations", "mulesoft", "rest api", "rest apis", "soap", "platform events",
+                  "change data capture", "boomi", "middleware", "named credentials", "api integration", "etl"]},
+    {"name": "Salesforce DevOps", "weight": 3,
+     "keywords": ["gearset", "autorabit", "salesforce dx", "sfdx", "sf cli", "devops center", "change sets",
+                  "release management", "ci/cd", "deployment", "deployments"]},
+    {"name": "Java", "weight": 3, "core": true,
+     "keywords": ["java", "spring boot", "spring framework", "j2ee", "jakarta ee", "hibernate", "java 17", "java 21"]}
+  ],
+
+  "exclude_keywords": ["intern", "internship", "unpaid"],
+  "exclude_location_patterns": [],
+
+  "extra_feeds": [],
+
+  "search_links": [
+    {"label": "LinkedIn · Salesforce contract/part-time (past week)",
+     "url": "https://www.linkedin.com/jobs/search/?keywords=salesforce%20OR%20copado%20OR%20flosum&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
+    {"label": "LinkedIn · Java contract/part-time (past week)",
+     "url": "https://www.linkedin.com/jobs/search/?keywords=java%20developer&f_WT=2&f_JT=C%2CP&f_TPR=r604800"},
+    {"label": "Dice · Salesforce remote contracts",
+     "url": "https://www.dice.com/jobs?q=salesforce&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME&filters.postedDate=SEVEN"},
+    {"label": "Dice · Copado / Flosum",
+     "url": "https://www.dice.com/jobs?q=copado%20OR%20flosum&filters.workplaceTypes=Remote&filters.employmentType=CONTRACTS%7CPARTTIME"},
+    {"label": "Upwork · Salesforce",
+     "url": "https://www.upwork.com/nx/search/jobs/?q=salesforce&sort=recency"},
+    {"label": "Upwork · Copado / Flosum",
+     "url": "https://www.upwork.com/nx/search/jobs/?q=copado%20OR%20flosum&sort=recency"},
+    {"label": "Indeed · Salesforce contract (remote)",
+     "url": "https://www.indeed.com/jobs?q=salesforce+contract&l=Remote&fromage=7"},
+    {"label": "Salesforce Trailblazer job board",
+     "url": "https://trailhead.salesforce.com/careers"}
+  ]
+}

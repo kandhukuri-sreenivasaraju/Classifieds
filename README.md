@@ -9,7 +9,40 @@ Flosum deployments** and related Salesforce DevOps.
 
 Everything uses the Python standard library, so there is nothing to install and no API keys to set up.
 
-## Check for new listings
+## The web app (no commands needed)
+
+`web/index.html` is a single-page app for browsing listings:
+
+* **Refresh** fetches the latest listings straight from the job boards in your browser. It also
+  refreshes by itself when you open it and the data is more than an hour old.
+* **NEW** badges mark listings you haven't seen before.
+* **Save**, **Applied** and **Hide** buttons, with a tab for each list.
+* Filters for search text, work type (part-time, contract, freelance), date range and sort order,
+  plus a **CSV** export.
+* **Settings** lets you edit your skills, keywords, weights, search terms, boards and exclusions.
+
+Your settings and lists are saved in your browser only (localStorage), so they don't move between
+devices.
+
+### Put it online with GitHub Pages (one-time setup, about a minute)
+
+1. On GitHub, open the repository's **Settings → Pages**. Under *Build and deployment → Source*,
+   choose **GitHub Actions**.
+2. Open **Actions → Refresh contract classifieds → Run workflow**.
+
+When it finishes, the app is live at `https://<your-username>.github.io/<repo-name>/`. Bookmark it
+or add it to your phone's home screen. After that, GitHub refreshes the data every 6 hours and on
+every change to `main`. The page also shows the boards that block direct browser access (for example
+We Work Remotely), because the scheduled GitHub run collects them. The page has a link to trigger a
+run whenever you want.
+
+GitHub Pages on a *private* repository requires a paid GitHub plan. The published page is
+publicly readable. It contains only job listings and the skill keywords.
+
+**Without Pages:** download `web/index.html` and open it in a browser. Refresh still works for
+every board that allows direct browser access.
+
+## Command line
 
 ```bash
 python3 -m classifieds --open
@@ -66,19 +99,12 @@ You can add more feeds, for example a Google Alert delivered as RSS, under `extr
   roles restricted to regions you can't work from, e.g. `["europe only", "^EMEA$", "UK only"]`.
 * **`owner_name`** personalizes the page heading.
 
-## Run it from your phone (GitHub Actions)
+## Scheduled runs (GitHub Actions)
 
-`.github/workflows/refresh.yml` runs the same search every 6 hours. You can also start it any time
-from **Actions → Refresh contract classifieds → Run workflow**, which works in the GitHub mobile app.
-Each run:
-
-* shows the top matches in the run's summary page, and
-* attaches the full report (`index.html`, CSV, JSON) as a downloadable artifact.
-
-**Optional: a permanent URL with GitHub Pages.** Go to repository Settings → Pages → Source, choose
-"GitHub Actions", then add a repository variable `ENABLE_PAGES` = `true` (Settings → Secrets and
-variables → Actions → Variables). Each run then publishes the report to your Pages site.
-GitHub Pages on a private repository requires a paid GitHub plan, and the page is publicly readable.
+`.github/workflows/refresh.yml` runs the Python fetcher every 6 hours, on changes to `main` and on
+demand. Each run shows the top matches on its summary page, attaches the site (web app,
+`jobs.json`, CSV, printable `report.html`) as a downloadable artifact, and publishes it to GitHub
+Pages when Pages is enabled.
 
 ## Development
 
@@ -87,4 +113,5 @@ python3 -m unittest discover -s tests -t .
 ```
 
 Each board adapter lives in `classifieds/sources.py`. To add a board, write a function that returns
-`Job` objects and register it in `SOURCES`.
+`Job` objects and register it in `SOURCES`. The web app has its own copy of the board adapters and
+the scoring rules (in `web/index.html`), so keep the two in step when you change them.

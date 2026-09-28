@@ -1,7 +1,7 @@
 name: Refresh contract classifieds
 
-# Run on demand (Actions tab → "Refresh contract classifieds" → Run workflow — also works
-# from the GitHub mobile app) and automatically every 6 hours.
+# Runs every 6 hours, whenever the app or config changes on main, and on demand
+# (Actions tab → "Refresh contract classifieds" → Run workflow — also works from the GitHub mobile app).
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +11,13 @@ on:
         default: false
   schedule:
     - cron: "17 */6 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "classifieds/**"
+      - "config.json"
+      - ".github/workflows/refresh.yml"
 
 permissions:
   contents: read
@@ -24,6 +31,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.pages.outcome }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +58,11 @@ jobs:
             ${{ inputs.include_full_time && '--include-full-time' || '' }} 2>&1 | tee site/summary.txt
           { echo '```'; cat site/summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Add the web app
+        run: |
+          mv site/index.html site/report.html
+          cp web/index.html site/index.html
+
       - name: Save seen-listings state
         if: always()
         uses: actions/cache/save@v4
@@ -56,21 +70,28 @@ jobs:
           path: data
           key: seen-${{ github.run_id }}
 
-      - name: Upload report
+      - name: Upload site
         uses: actions/upload-artifact@v4
         with:
           name: contract-classifieds
           path: site
 
+      # Publishes to GitHub Pages only when Pages is enabled with "GitHub Actions" as the source
+      # (Settings → Pages). Otherwise this step is skipped and the run still succeeds.
+      - name: Check GitHub Pages
+        id: pages
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
       - name: Package for GitHub Pages
-        if: vars.ENABLE_PAGES == 'true'
+        if: steps.pages.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
     needs: build
-    if: vars.ENABLE_PAGES == 'true'
+    if: needs.build.outputs.pages == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

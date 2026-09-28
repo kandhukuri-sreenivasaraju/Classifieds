@@ -127,4 +127,5 @@ class Job:
             "is_new": self.is_new,
             "first_seen": self.first_seen,
             "snippet": self.snippet(),
+            "description": self.description[:4000],
         }

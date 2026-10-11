@@ -98,6 +98,10 @@ def print_breakdown(pool: List[Job], per_source: dict, cfg: dict) -> None:
                 for j in pool)
     print(f"Skill matches (any location or work type): {len(pool)} — open to {cfg['allow_locations'][0]}: {local}, "
           f"worldwide/unspecified: {world}, elsewhere only: {len(pool) - local - world}", file=sys.stderr)
+    local_jobs = [j for j in pool if location_ok(j, allow, False)]
+    kinds = Counter(j.engagement for j in local_jobs)
+    print(f"  Open to {cfg['allow_locations'][0]} by work type: "
+          + ", ".join(f"{k} {v}" for k, v in kinds.most_common()), file=sys.stderr)
     top = Counter((j.location or "(none)")[:30] for j in pool).most_common(10)
     print("Most common locations: " + "; ".join(f"{loc} ×{n}" for loc, n in top), file=sys.stderr)
 

@@ -14,7 +14,7 @@ from typing import List
 
 from .models import Job
 from .render import ENGAGEMENT_LABEL, default_search_links, write_outputs
-from .scoring import score_and_filter
+from .scoring import candidates, score_and_filter
 from .sources import SOURCES, fetch_extra_feeds, run_source
 from .store import mark_new
 
@@ -105,11 +105,13 @@ def main(argv: List[str] | None = None) -> int:
 
     print(f"Searching {len(names)} boards for: {', '.join(cfg['search_terms'])} …", file=sys.stderr)
     raw, per_source = gather(cfg, names)
-    jobs = score_and_filter(raw, cfg, include_full_time=args.include_full_time)
+    pool = candidates(raw, cfg)
+    jobs = score_and_filter(pool, cfg, include_full_time=args.include_full_time)
     new_count = mark_new(jobs, args.state)
 
-    stats = {"raw": len(raw), "matched": len(jobs), "new": new_count, "per_source": per_source}
-    html_path = write_outputs(jobs, cfg, stats, args.out)
+    stats = {"raw": len(raw), "candidates": len(pool), "matched": len(jobs), "new": new_count,
+             "per_source": per_source}
+    html_path = write_outputs(jobs, cfg, stats, args.out, candidates=pool)
 
     if args.limit:
         print_table(jobs, args.limit, args.new_only)

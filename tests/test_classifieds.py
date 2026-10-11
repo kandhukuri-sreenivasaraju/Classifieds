@@ -6,7 +6,7 @@ from pathlib import Path
 
 from classifieds.models import Job, parse_date, strip_html
 from classifieds.render import render_html
-from classifieds.scoring import classify_engagement, dedupe, keyword_regex, score_and_filter
+from classifieds.scoring import candidates, classify_engagement, dedupe, keyword_regex, score_and_filter
 from unittest import mock
 
 from classifieds import sources
@@ -86,6 +86,26 @@ class ScoringTests(unittest.TestCase):
         worldwide = dict(CFG, include_worldwide=True)
         kept = {j.title[-1] for j in score_and_filter(jobs, worldwide, now=NOW)}
         self.assertEqual(kept, {"A", "B", "C", "D", "G", "H"})
+
+    def test_candidates_ignore_location_and_work_type(self):
+        jobs = [
+            job("Salesforce Developer", "Full-time permanent", location="USA only"),
+            job("Salesforce Contractor", location="Worldwide"),
+            job("React Developer", "JavaScript contract"),          # no required skill
+            job("Old Salesforce role", days_old=90),                # too old
+        ]
+        self.assertEqual({j.title for j in candidates(jobs, CFG, now=NOW)},
+                         {"Salesforce Developer", "Salesforce Contractor"})
+
+    def test_weworkremotely_reads_category_feeds_and_filters_terms(self):
+        feed = b"""<?xml version="1.0"?><rss><channel>
+          <item><title>Acme: Salesforce Developer</title><link>https://wwr.test/1</link><description>Apex</description></item>
+          <item><title>Beta: Go Engineer</title><link>https://wwr.test/2</link><description>Golang</description></item>
+        </channel></rss>"""
+        with mock.patch.object(sources, "fetch", return_value=feed) as fetch:
+            found = sources.fetch_weworkremotely(["salesforce"])
+        self.assertTrue(all("/categories/" in c.args[0] for c in fetch.call_args_list))
+        self.assertEqual({j.title for j in found}, {"Salesforce Developer"})
 
     def test_dedupe_merges_sources(self):
         a = job("Salesforce Developer", "short")

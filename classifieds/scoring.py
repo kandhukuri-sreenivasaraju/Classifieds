@@ -157,6 +157,24 @@ def dedupe(jobs: List[Job]) -> List[Job]:
     return list(by_key.values())
 
 
+def candidates(jobs: List[Job], cfg: dict, now: Optional[datetime] = None, max_age_days: int = 60) -> List[Job]:
+    """Recent remote listings matching at least one required skill, before the location, work-type
+    and score filters. Published for the web app so its own Settings apply to every board."""
+    now = now or datetime.now(timezone.utc)
+    skills = compile_skills(cfg["skills"])
+    out = []
+    for job in dedupe(jobs):
+        age = job.age_days(now)
+        if age is not None and age > max_age_days:
+            continue
+        if cfg.get("remote_only", True) and not is_remote(job):
+            continue
+        if match_skills(job, skills)[2]:
+            job.engagement = classify_engagement(job)
+            out.append(job)
+    return out
+
+
 def score_and_filter(
     jobs: List[Job],
     cfg: dict,

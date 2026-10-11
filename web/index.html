@@ -338,6 +338,8 @@ async function get(url, as = 'json') {
 const enc = encodeURIComponent;
 const matchesTerms = (blob, terms) => { const b = blob.toLowerCase(); return terms.some(t => b.includes(t.toLowerCase())); };
 
+// Boards marked `browser: false` don't allow other websites to read their data, so the browser
+// never fetches them; their listings arrive through jobs.json from the scheduled GitHub run.
 const SOURCES = {
   remotive: { label: 'Remotive', perTerm: async t =>
     ((await get(`https://remotive.com/api/remote-jobs?search=${enc(t)}&limit=100`)).jobs || []).map(j => mk('Remotive', {
@@ -355,7 +357,7 @@ const SOURCES = {
       title: j.jobTitle, company: j.companyName, url: j.url, description: j.jobDescription || j.jobExcerpt, location: j.jobGeo,
       posted: j.pubDate, tags: j.jobIndustry, job_type: j.jobType,
       salary: j.annualSalaryMin && j.annualSalaryMax ? `${j.salaryCurrency || ''} ${j.annualSalaryMin} – ${j.annualSalaryMax}`.trim() : '' })) },
-  himalayas: { label: 'Himalayas', perTerm: async t =>
+  himalayas: { label: 'Himalayas', browser: false, perTerm: async t =>
     ((await get(`https://himalayas.app/jobs/api/search?q=${enc(t)}`)).jobs || []).map(j => mk('Himalayas', {
       title: j.title, company: j.companyName, url: j.applicationLink || j.guid, description: j.description || j.excerpt,
       location: asText(j.locationRestrictions) || 'Anywhere', posted: j.pubDate, tags: j.categories, job_type: j.employmentType,
@@ -388,13 +390,13 @@ const SOURCES = {
         remote: /\bremote\b/i.test(text) })];
     });
   } },
-  workingnomads: { label: 'Working Nomads', all: async terms => {
+  workingnomads: { label: 'Working Nomads', browser: false, all: async terms => {
     const data = await get('https://www.workingnomads.com/api/exposed_jobs/');
     return (Array.isArray(data) ? data : []).filter(j => matchesTerms(`${j.title} ${j.tags} ${j.description}`, terms)).map(j => mk('Working Nomads', {
       title: j.title, company: j.company_name, url: j.url, description: j.description, location: j.location,
       posted: j.pub_date, tags: String(j.tags || '').split(',').map(s => s.trim()) }));
   } },
-  weworkremotely: { label: 'We Work Remotely', perTerm: async t => {
+  weworkremotely: { label: 'We Work Remotely', browser: false, perTerm: async t => {
     const xml = new DOMParser().parseFromString(await get(`https://weworkremotely.com/remote-jobs/search.rss?term=${enc(t)}`, 'text'), 'application/xml');
     return [...xml.querySelectorAll('item')].map(it => {
       const txt = n => (it.getElementsByTagName(n)[0] || {}).textContent || '';
@@ -509,14 +511,18 @@ async function loadServerJobs() {
     const r = await fetch('jobs.json', { cache: 'no-store' });
     if (!r.ok) return;
     const data = await r.json();
-    const jobs = (data.jobs || []).map(j => {
+    // `candidates` = every recent skill match (before location/type filters), so Settings apply to all boards.
+    const list = Array.isArray(data.candidates) && data.candidates.length ? data.candidates : (data.jobs || []);
+    const jobs = list.map(j => {
       const x = mk(j.source || 'GitHub run', { title: j.title, company: j.company, url: j.url, description: j.description || j.snippet,
         location: j.location, posted: j.posted, tags: j.tags, job_type: j.job_type, salary: j.salary });
       x.also = j.also_on || [];
       return x;
     });
     mergeJobs(jobs);
-    meta.server = { at: parseDate(data.generated), count: jobs.length };
+    const bySource = {};
+    for (const j of jobs) bySource[j.source] = (bySource[j.source] || 0) + 1;
+    meta.server = { at: parseDate(data.generated), count: jobs.length, bySource };
     store.set('meta', meta);
   } catch { /* no server results available */ }
 }
@@ -528,7 +534,7 @@ async function refresh() {
   refreshing = true;
   const btn = $('refreshBtn');
   btn.disabled = true; btn.textContent = 'Refreshing…';
-  const names = settings.sources.filter(n => SOURCES[n]);
+  const names = settings.sources.filter(n => SOURCES[n] && SOURCES[n].browser !== false);
   for (const n of names) meta.sources[n] = { ...(meta.sources[n] || {}), loading: true };
   renderSources();
   const collected = [];
@@ -565,6 +571,12 @@ function ago(ms) {
 }
 function renderSources() {
   const chips = settings.sources.filter(n => SOURCES[n]).map(n => {
+    if (SOURCES[n].browser === false) {
+      const count = meta.server && meta.server.bySource ? (meta.server.bySource[SOURCES[n].label] || 0) : null;
+      return count == null
+        ? `<span class="src" title="This board only works through the scheduled GitHub run">${esc(SOURCES[n].label)} <b>–</b></span>`
+        : `<span class="src ok" title="Collected by the scheduled GitHub run">${esc(SOURCES[n].label)} <b>${count}</b></span>`;
+    }
     const s = meta.sources[n] || {};
     const cls = s.loading ? 'loading' : s.ok ? 'ok' : s.at ? 'err' : '';
     const val = s.loading ? '…' : s.ok ? s.count : s.at ? '✕' : '–';
@@ -574,9 +586,10 @@ function renderSources() {
   if (meta.server) chips.unshift(`<span class="src ok" title="Results from the scheduled GitHub run">GitHub run <b>${meta.server.count}</b> · ${ago(meta.server.at)}</span>`);
   $('sources').innerHTML = chips.join('');
 
-  const failed = settings.sources.filter(n => meta.sources[n] && meta.sources[n].at && !meta.sources[n].ok && !meta.sources[n].loading);
+  const failed = settings.sources.filter(n => SOURCES[n] && SOURCES[n].browser !== false
+    && meta.sources[n] && meta.sources[n].at && !meta.sources[n].ok && !meta.sources[n].loading);
   $('notice').innerHTML = failed.length && !refreshing
-    ? `<p class="notice">${failed.length} board${failed.length > 1 ? 's' : ''} couldn't be reached from your browser (${esc(failed.map(n => SOURCES[n].label).join(', '))}). Some boards block direct browser access. When this page runs on GitHub Pages, the scheduled GitHub run collects those boards for you.</p>`
+    ? `<p class="notice">Couldn't load ${esc(failed.map(n => SOURCES[n].label).join(', '))} just now. Try Refresh again later; listings already found are still shown.</p>`
     : '';
 }
 

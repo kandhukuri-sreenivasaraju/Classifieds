@@ -190,13 +190,15 @@ aside a {{ color: var(--accent); }}
 """
 
 
-def write_outputs(jobs: List[Job], cfg: dict, stats: dict, out_dir: Path) -> Path:
+def write_outputs(jobs: List[Job], cfg: dict, stats: dict, out_dir: Path,
+                  candidates: Optional[List[Job]] = None) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     html_path = out_dir / "index.html"
     html_path.write_text(render_html(jobs, cfg, stats), encoding="utf-8")
     (out_dir / "jobs.json").write_text(
         json.dumps({"generated": datetime.now(timezone.utc).isoformat(), "stats": stats,
-                    "jobs": [j.to_dict() for j in jobs]}, indent=2),
+                    "jobs": [j.to_dict() for j in jobs],
+                    "candidates": [j.to_dict() for j in (candidates or [])]}, indent=1),
         encoding="utf-8",
     )
     with (out_dir / "jobs.csv").open("w", newline="", encoding="utf-8") as fh:

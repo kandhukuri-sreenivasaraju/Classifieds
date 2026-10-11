@@ -308,12 +308,30 @@ def parse_feed(raw: bytes, source: str, remote: bool = False) -> List[Job]:
     return jobs
 
 
-def fetch_weworkremotely(terms: List[str]) -> List[Job]:
-    def one(term: str) -> List[Job]:
-        raw = fetch(f"https://weworkremotely.com/remote-jobs/search.rss?term={quote_plus(term)}")
-        return parse_feed(raw, "We Work Remotely", remote=True)
+# WWR's search feed answers "406 Not Acceptable"; its category feeds are public, so read
+# the relevant categories and filter locally by the search terms.
+WWR_CATEGORIES = [
+    "remote-back-end-programming-jobs",
+    "remote-full-stack-programming-jobs",
+    "remote-devops-sysadmin-jobs",
+    "remote-programming-jobs",
+]
 
-    return _per_term("We Work Remotely", terms, one)
+
+def fetch_weworkremotely(terms: List[str]) -> List[Job]:
+    needles = [t.lower() for t in terms]
+    jobs: List[Job] = []
+    for category in WWR_CATEGORIES:
+        try:
+            raw = fetch(f"https://weworkremotely.com/categories/{category}.rss",
+                        headers={"Accept": "application/rss+xml, application/xml, text/xml, */*"})
+        except Exception as exc:
+            log.warning("We Work Remotely: %s feed failed: %s", category, exc)
+            continue
+        for job in parse_feed(raw, "We Work Remotely", remote=True):
+            if any(n in f"{job.title} {job.description} {' '.join(job.tags)}".lower() for n in needles):
+                jobs.append(job)
+    return jobs
 
 
 def fetch_extra_feeds(feeds: List[dict]) -> List[Job]:

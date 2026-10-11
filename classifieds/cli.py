@@ -7,6 +7,7 @@ import json
 import logging
 import sys
 import webbrowser
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +15,7 @@ from typing import List
 
 from .models import Job
 from .render import ENGAGEMENT_LABEL, default_search_links, write_outputs
-from .scoring import score_and_filter
+from .scoring import WORLDWIDE_RE, candidates, keyword_regex, location_ok, score_and_filter
 from .sources import SOURCES, fetch_extra_feeds, run_source
 from .store import mark_new
 
@@ -86,6 +87,25 @@ def print_table(jobs: List[Job], limit: int, new_only: bool) -> None:
     print()
 
 
+def print_breakdown(pool: List[Job], per_source: dict, cfg: dict) -> None:
+    """One-glance diagnostics: what each board returned and where the skill matches are based."""
+    print("Boards: " + ", ".join(f"{k} {v}" for k, v in per_source.items()), file=sys.stderr)
+    allow = [keyword_regex(k) for k in cfg.get("allow_locations", [])]
+    if not pool or not allow:
+        return
+    local = sum(location_ok(j, allow, False) for j in pool)
+    world = sum(not location_ok(j, allow, False) and (not j.location.strip() or bool(WORLDWIDE_RE.search(j.location)))
+                for j in pool)
+    print(f"Skill matches (any location or work type): {len(pool)} — open to {cfg['allow_locations'][0]}: {local}, "
+          f"worldwide/unspecified: {world}, elsewhere only: {len(pool) - local - world}", file=sys.stderr)
+    local_jobs = [j for j in pool if location_ok(j, allow, False)]
+    kinds = Counter(j.engagement for j in local_jobs)
+    print(f"  Open to {cfg['allow_locations'][0]} by work type: "
+          + ", ".join(f"{k} {v}" for k, v in kinds.most_common()), file=sys.stderr)
+    top = Counter((j.location or "(none)")[:30] for j in pool).most_common(10)
+    print("Most common locations: " + "; ".join(f"{loc} ×{n}" for loc, n in top), file=sys.stderr)
+
+
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,
@@ -105,16 +125,19 @@ def main(argv: List[str] | None = None) -> int:
 
     print(f"Searching {len(names)} boards for: {', '.join(cfg['search_terms'])} …", file=sys.stderr)
     raw, per_source = gather(cfg, names)
-    jobs = score_and_filter(raw, cfg, include_full_time=args.include_full_time)
+    pool = candidates(raw, cfg)
+    jobs = score_and_filter(pool, cfg, include_full_time=args.include_full_time)
     new_count = mark_new(jobs, args.state)
 
-    stats = {"raw": len(raw), "matched": len(jobs), "new": new_count, "per_source": per_source}
-    html_path = write_outputs(jobs, cfg, stats, args.out)
+    stats = {"raw": len(raw), "candidates": len(pool), "matched": len(jobs), "new": new_count,
+             "per_source": per_source}
+    html_path = write_outputs(jobs, cfg, stats, args.out, candidates=pool)
 
     if args.limit:
         print_table(jobs, args.limit, args.new_only)
     print(f"{len(jobs)} matching listings ({new_count} new) from {len(raw)} scanned. "
           f"Report: {html_path}", file=sys.stderr)
+    print_breakdown(pool, per_source, cfg)
     if not raw:
         print("No listings were fetched — check your internet connection (run with -v for details).",
               file=sys.stderr)

@@ -76,10 +76,11 @@ jobs:
           name: contract-classifieds
           path: site
 
-      # Publishes to GitHub Pages only when Pages is enabled with "GitHub Actions" as the source
-      # (Settings → Pages). Otherwise this step is skipped and the run still succeeds.
+      # Publishes to GitHub Pages only from main, and only when Pages is enabled with "GitHub Actions"
+      # as the source (Settings → Pages). Otherwise these steps are skipped and the run still succeeds.
       - name: Check GitHub Pages
         id: pages
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         uses: actions/configure-pages@v5
 
